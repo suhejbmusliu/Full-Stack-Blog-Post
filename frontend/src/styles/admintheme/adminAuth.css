@@ -1,0 +1,237 @@
+/* adminAuth.css */
+:root {
+  --bg: #000000;
+  --card: rgba(255, 255, 255, 0.06);
+  --card2: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.12);
+  --text: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.65);
+  --danger: #ff4d4f;
+  --ok: #3ddc97;
+  --focus: rgba(255,255,255,0.22);
+}
+
+.adminAuth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(1200px 600px at 20% 10%, rgba(255,255,255,0.10), transparent 60%),
+              radial-gradient(900px 600px at 90% 20%, rgba(255,255,255,0.08), transparent 55%),
+              linear-gradient(180deg, #050505, var(--bg));
+  padding: 24px;
+  color: var(--text);
+  font-family: "Montserrat", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.adminCard {
+  width: min(420px, 100%);
+  background: linear-gradient(180deg, var(--card), var(--card2));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 20px 70px rgba(0,0,0,0.55);
+  backdrop-filter: blur(10px);
+}
+
+.adminBrand {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.adminBrand__title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.adminBrand__sub {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.adminForm {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.adminField label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.adminInput {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 12px 12px;
+  background: rgba(0,0,0,0.28);
+  color: var(--text);
+  outline: none;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+.adminInput:focus {
+  border-color: rgba(255,255,255,0.22);
+  box-shadow: 0 0 0 4px rgba(255,255,255,0.08);
+}
+
+.adminRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.adminLink {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.85);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 0;
+}
+.adminLink:hover { opacity: 0.85; }
+
+.adminBtn {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  background: #fff;
+  color: #000;
+  transition: transform .08s ease, opacity .18s ease;
+}
+.adminBtn:active { transform: translateY(1px); }
+.adminBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.adminMsg {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.adminMsg--error { color: var(--danger); }
+.adminMsg--ok { color: var(--ok); }
+
+.adminDivider {
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0;
+}
+
+.adminHint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.admin2FABox {
+  border: 1px dashed rgba(255,255,255,0.16);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(0,0,0,0.18);
+}
+
+.adminSmall {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* FORCE admin login to stay dark even if other themes exist */
+.adminAuth {
+  background: radial-gradient(1200px 600px at 20% 10%, rgba(255,255,255,0.10), transparent 60%),
+              radial-gradient(900px 600px at 90% 20%, rgba(255,255,255,0.08), transparent 55%),
+              linear-gradient(180deg, #050505, #000) !important;
+  color: rgba(255,255,255,0.92) !important;
+}
+
+/* prevent any inherited light backgrounds */
+.adminAuth * {
+  color: inherit;
+}
+
+/* make sure the card stays dark/glass */
+.adminAuth .adminCard {
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.08)) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  backdrop-filter: blur(10px);
+}
+
+/* inputs must stay dark */
+.adminAuth .adminInput {
+  background: rgba(0,0,0,0.28) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: rgba(255,255,255,0.92) !important;
+}
+.adminAuth .adminInput::placeholder {
+  color: rgba(255,255,255,0.45) !important;
+}
+
+.adminAuth .adminBtn {
+  width: 100% !important;
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 12px 14px !important;
+
+  background: #ffffff !important;
+  color: #000000 !important;
+
+  font-weight: 800 !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  cursor: pointer !important;
+}
+
+.adminAuth .adminBtn:hover {
+  opacity: 0.92 !important;
+}
+
+.adminAuth .adminBtn:active {
+  transform: translateY(1px) !important;
+}
+
+.adminAuth .adminBtn:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  color: #000000 !important;
+}
+
+.adminInputWrap {
+  position: relative;
+  width: 100%;
+}
+
+.adminInputWrap .adminInput {
+  padding-right: 44px; /* space for the eye button */
+}
+
+.adminEyeBtn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px;
+  opacity: 0.85;
+}
+
+.adminEyeBtn:hover {
+  opacity: 1;
+}

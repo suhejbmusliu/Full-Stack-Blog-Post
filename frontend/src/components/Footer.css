@@ -1,0 +1,244 @@
+.footer {
+  background: #fff; /* page background stays like your project */
+  padding: 18px 0 24px;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.footer__inner {
+  width: min(1180px, 92%);
+  margin: 0 auto;
+}
+
+/* top-right small text */
+.footer__top {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.footer__madeby {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+
+  font-size: 13px;
+  color: #fff;
+  opacity: 0.7;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* black rounded card like screenshot */
+.footer__card {
+  background: #0b0b0b;
+  color: #fff;
+  border-radius: 16px;
+  padding: 18px 22px 14px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  position: relative; /* 👈 IMPORTANT */
+}
+
+/* top row */
+.footer__row--top {
+  display: grid;
+  grid-template-columns: 160px 1fr 160px;
+  gap: 18px;
+  align-items: center;
+}
+
+/* nav links left stacked */
+.footer__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.footer__link {
+  color: #fff;
+  text-decoration: none;
+  font-size: 20px;
+  opacity: 0.85;
+  width: fit-content;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.footer__link:hover {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+.footer__link.active {
+  opacity: 1;
+}
+
+/* center contact row */
+.footer__contact {
+  display: flex;
+  justify-content: center;
+  gap: 34px;
+  font-style: normal;
+  margin: 0;
+  opacity: 0.9;
+  font-size: 20px;
+}
+
+.footer__contactItem {
+  white-space: nowrap;
+}
+
+.footer__contactLink {
+  color: #fff;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.footer__contactLink:hover {
+  opacity: 0.75;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* socials right */
+.footer__social {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.footer__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  text-decoration: none;
+  transition: transform 0.2s ease, background 0.2s ease, filter 0.2s ease;
+}
+
+.footer__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* brand colors */
+.footer__icon--fb svg {
+  color: #1877f2;
+}
+.footer__icon--ig svg {
+  color: #e1306c;
+}
+.footer__icon--yt svg {
+  color: #ff0000;
+}
+
+.footer__icon:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.12);
+  filter: brightness(1.05);
+}
+
+.footer__divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.18);
+  margin: 16px 0 10px;
+}
+
+/* big logo text */
+.footer__brandWrap {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 0;
+}
+
+.footer__brand {
+  margin: 0;
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: 13px;
+  font-size: clamp(34px, 4.6vw, 72px);
+  line-height: 1;
+}
+
+.footer__copyright {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 17px;
+  opacity: 0.85;
+}
+
+/* ---------------------------
+   RESPONSIVE BEHAVIOR
+---------------------------- */
+
+/* Tablet: contact becomes vertical; icons stay horizontal */
+@media (max-width: 900px) {
+  .footer__row--top {
+    grid-template-columns: 170px 1fr;
+    grid-template-areas:
+      "nav social"
+      "contact contact";
+    align-items: start;
+  }
+
+  .footer__nav {
+    grid-area: nav;
+  }
+
+  .footer__social {
+    grid-area: social;
+    justify-content: flex-end;
+  }
+
+  .footer__contact {
+    grid-area: contact;
+    justify-content: flex-start;
+    gap: 10px;
+    flex-direction: column;
+    margin-top: 6px;
+  }
+}
+
+/* Mobile: full vertical stack, centered */
+@media (max-width: 560px) {
+  .footer__top {
+    justify-content: center;
+  }
+
+  .footer__card {
+    padding: 16px 16px 14px;
+  }
+  .footer__madeby {
+    position: static;
+    text-align: center;
+    margin-bottom: 10px;
+    opacity: 0.8;
+  }
+
+  .footer__row--top {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: center;
+    text-align: center;
+  }
+
+  .footer__nav {
+    align-items: center;
+  }
+
+  .footer__contact {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .footer__social {
+    justify-content: center;
+  }
+
+  .footer__brand {
+    letter-spacing: 2px;
+  }
+}

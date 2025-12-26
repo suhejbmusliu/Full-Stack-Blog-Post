@@ -1,0 +1,161 @@
+.hero {
+  padding: 28px 0;
+}
+
+/* ✅ scoped container (doesn't override your global .container) */
+.hero__container {
+  width: min(1180px, 92%);
+  margin: 0 auto;
+}
+
+.heroCard {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  height: 460px;
+  background: #111;
+}
+
+/* background image layer */
+.heroCard__bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transform: translateZ(0);
+}
+
+/* dark overlay */
+.heroCard__shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.75) 0%,
+    rgba(0, 0, 0, 0.35) 45%,
+    rgba(0, 0, 0, 0.15) 100%
+  );
+}
+
+/* ✅ click layer should be under controls/text */
+.heroCard__clickArea {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+}
+
+/* bottom-left text */
+.heroCard__content {
+  position: absolute;
+  left: 26px;
+  bottom: 26px;
+  width: min(760px, 92%);
+  color: #fff;
+  z-index: 3;
+}
+
+.heroCard__label {
+  font-size: 14px;
+  opacity: 0.9;
+  margin: 0 0 8px;
+}
+
+.heroCard__title {
+  font-size: clamp(20px, 2.2vw + 10px, 36px);
+  line-height: 1.15;
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  text-wrap: balance;
+}
+
+/* arrows */
+.heroCard__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 4; /* ✅ above clickArea */
+  border: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 28px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.heroCard__arrow:hover {
+  background: rgba(0, 0, 0, 0.6);
+  transform: translateY(-50%) scale(1.03);
+}
+
+.heroCard__arrow--left {
+  left: 14px;
+}
+
+.heroCard__arrow--right {
+  right: 14px;
+}
+
+/* dots bottom center */
+.heroCard__dots {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 4; /* ✅ above clickArea */
+}
+
+.heroDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.heroDot--active {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* responsive */
+@media (max-width: 900px) {
+  .heroCard {
+    height: 380px;
+  }
+
+  .heroCard__content {
+    left: 18px;
+    bottom: 18px;
+  }
+}
+
+@media (max-width: 520px) {
+  .hero {
+    padding: 18px 0;
+  }
+
+  .heroCard {
+    height: 310px;
+    border-radius: 12px;
+  }
+
+  .heroCard__arrow {
+    width: 40px;
+    height: 40px;
+    font-size: 26px;
+  }
+
+  .heroCard__label {
+    font-size: 13px;
+  }
+}

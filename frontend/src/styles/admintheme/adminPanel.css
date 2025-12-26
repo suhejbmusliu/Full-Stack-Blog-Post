@@ -1,0 +1,181 @@
+/* ==============================
+   ADMIN LAYOUT CORE (FIXED)
+================================ */
+
+/* Admin app becomes its own scroll container */
+.adminShell{
+  height:100dvh;
+  background:#f6f6f6;
+  display:grid;
+  grid-template-columns:260px 1fr;
+  overflow:hidden; /* IMPORTANT */
+}
+
+/* Right side wrapper */
+.adminMain{
+  min-width:0;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden; /* IMPORTANT */
+}
+
+/* ONLY this scrolls */
+.adminContent{
+  padding:18px;
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* ==============================
+   TOPBAR
+================================ */
+.adminTopbar{
+  background:#fff;
+  border-bottom:1px solid #eaeaea;
+  padding:12px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.adminTopLeft{display:flex;align-items:center;gap:12px}
+.adminTopTitle{font-weight:900}
+.adminTopRight{display:flex;gap:10px;align-items:center}
+.adminChip{
+  border:1px solid #eaeaea;
+  background:#fff;
+  padding:8px 10px;
+  border-radius:999px;
+  text-decoration:none;
+  color:#111;
+  font-weight:700
+}
+
+.adminIconBtn{
+  border:1px solid #eaeaea;
+  background:#fff;
+  padding:8px 10px;
+  border-radius:10px;
+  cursor:pointer
+}
+
+/* ==============================
+   SIDEBAR (STATIC)
+================================ */
+.adminSidebar{
+  background:#000;
+  color:#fff;
+  padding:16px;
+  height:100dvh;
+  position:sticky;
+  top:0;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.adminBrand{display:flex;align-items:center;gap:10px}
+.adminBrandLogo{
+  width:36px;height:36px;
+  border-radius:12px;
+  background:#1a1a1a;
+  display:grid;
+  place-items:center;
+  font-weight:900
+}
+.adminBrandTitle{font-weight:900;line-height:1.1}
+.adminBrandSub{font-size:12px;opacity:.7}
+
+.adminNav{display:grid;gap:6px}
+.adminNavLink{
+  color:#fff;
+  text-decoration:none;
+  padding:10px 12px;
+  border-radius:12px;
+  opacity:.9
+}
+.adminNavLink:hover{background:rgba(255,255,255,.08);opacity:1}
+.adminNavLink.active{background:rgba(255,255,255,.14);opacity:1}
+
+.adminLogout{
+  margin-top:auto;
+  width:100%;
+  border:1px solid rgba(255,255,255,.2);
+  background:transparent;
+  color:#fff;
+  padding:10px 12px;
+  border-radius:12px;
+  cursor:pointer
+}
+
+/* ==============================
+   GENERAL UI (UNCHANGED)
+================================ */
+.adminPageHead{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.adminH1{margin:0;font-size:24px}
+.adminMuted{color:#666;margin-top:6px}
+
+.adminGrid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:980px){.adminGrid2{grid-template-columns:1fr}}
+
+.adminCard{background:#fff;border:1px solid #eaeaea;border-radius:16px;overflow:hidden}
+.adminCardHead{padding:14px 16px;border-bottom:1px solid #eaeaea;display:flex;justify-content:space-between;align-items:center}
+.adminCardTitle{font-weight:900}
+.adminCardBody{padding:16px}
+
+.adminBtn{background:#000;color:#fff;border:1px solid #000;border-radius:14px;padding:10px 14px;font-weight:700;cursor:pointer}
+.adminBtn:disabled{opacity:.5;cursor:not-allowed}
+.adminBtnGhost{background:transparent;color:#111;border:1px solid #eaeaea}
+.adminBtnDanger{background:#d64545;border-color:#d64545}
+
+.adminInput,.adminTextarea,select.adminInput{
+  width:100%;
+  border:1px solid #eaeaea;
+  border-radius:14px;
+  padding:10px 12px;
+  background:#fff;
+  outline:none
+}
+.adminTextarea{resize:vertical}
+
+/* ==============================
+   MOBILE SIDEBAR
+================================ */
+.adminOverlay{display:none}
+
+@media(max-width:980px){
+  .adminShell{grid-template-columns:1fr}
+
+  .adminSidebar{
+    position:fixed;
+    left:0;
+    top:0;
+    transform:translateX(-110%);
+    transition:transform .25s ease;
+    z-index:50;
+    width:260px
+  }
+
+  .adminSidebar.open{transform:translateX(0)}
+
+  .adminOverlay{
+    display:block;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.4);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s ease;
+    z-index:45
+  }
+
+  .adminOverlay.show{
+    opacity:1;
+    pointer-events:auto
+  }
+}
