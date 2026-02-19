@@ -47,8 +47,9 @@ async function getFullPostById(postId) {
     [postId]
   );
 
+  // ✅ Do NOT fetch BLOB columns into JSON
   const [imgRows] = await pool.query(
-    `SELECT * FROM post_images WHERE postId = ? ORDER BY sortOrder ASC`,
+    `SELECT id, postId, sortOrder FROM post_images WHERE postId = ? ORDER BY sortOrder ASC`,
     [postId]
   );
 
@@ -59,6 +60,16 @@ async function getFullPostById(postId) {
 
   return {
     ...post,
+
+    // ✅ frontend loads images via endpoints
+    coverUrl: `/api/posts/${post.id}/cover`,
+    images: imgRows.map((r) => ({
+      id: r.id,
+      postId: r.postId,
+      sortOrder: r.sortOrder,
+      url: `/api/posts/image/${r.id}`,
+    })),
+
     categories: catRows.map((r) => ({
       postId: r.postId,
       categoryId: r.categoryId,
@@ -69,7 +80,6 @@ async function getFullPostById(postId) {
       tagId: r.tagId,
       tag: { id: r.t_id, name: r.t_name, slug: r.t_slug, createdAt: r.t_createdAt },
     })),
-    images: imgRows,
     author: authorRows[0] || null,
   };
 }
@@ -127,17 +137,44 @@ async function attachCatsTags(postId, categories, tags) {
   }
 }
 
+// --- image endpoints --------------------------------------------
+// ⚠️ Must be above "/:slug"
+
+router.get("/:id/cover", async (req, res) => {
+  const { id } = req.params;
+
+  const [rows] = await pool.query(
+    `SELECT coverImage, coverImageMime FROM posts WHERE id = ? LIMIT 1`,
+    [id]
+  );
+  const r = rows[0];
+  if (!r?.coverImage) return res.status(404).end();
+
+  res.setHeader("Content-Type", r.coverImageMime || "image/webp");
+  res.send(r.coverImage);
+});
+
+router.get("/image/:imageId", async (req, res) => {
+  const { imageId } = req.params;
+
+  const [rows] = await pool.query(
+    `SELECT image, imageMime FROM post_images WHERE id = ? LIMIT 1`,
+    [imageId]
+  );
+  const r = rows[0];
+  if (!r?.image) return res.status(404).end();
+
+  res.setHeader("Content-Type", r.imageMime || "image/webp");
+  res.send(r.image);
+});
+
 // --- routes -----------------------------------------------------
 
-// ✅ GET ALL CATEGORIES (for your dropdown)
 router.get("/categories/all", async (req, res) => {
-  const [rows] = await pool.query(
-    `SELECT id, name, slug FROM categories ORDER BY name ASC`
-  );
+  const [rows] = await pool.query(`SELECT id, name, slug FROM categories ORDER BY name ASC`);
   res.json({ ok: true, categories: rows });
 });
 
-// CREATE POST (cover + detail images + categoryId)
 router.post("/", requireAuth, uploadPostMedia, async (req, res) => {
   const {
     title,
@@ -147,7 +184,7 @@ router.post("/", requireAuth, uploadPostMedia, async (req, res) => {
     categories = [],
     tags = [],
     categoryId,
-    activityDate, // ✅ NEW
+    activityDate,
   } = req.body;
 
   const slug = makeSlug(title);
@@ -170,46 +207,43 @@ router.post("/", requireAuth, uploadPostMedia, async (req, res) => {
     ]
   );
 
-  // ✅ If categoryId exists -> attach it
   if (categoryId) {
     await pool.query(
       `INSERT IGNORE INTO post_categories (postId, categoryId) VALUES (?, ?)`,
       [postId, String(categoryId)]
     );
   } else {
-    // ✅ keep old behavior
     await attachCatsTags(postId, categories, tags);
   }
 
-  // ✅ still attach tags even if categoryId used (so tags work same)
   if (tags && String(tags).length) {
     await attachCatsTags(postId, [], tags);
   }
 
-  // files
   const coverFile = req.files?.cover?.[0];
   const imageFiles = req.files?.images || [];
 
-  // cover image (appearance)
+  // ✅ Cover stored in DB
   if (coverFile?.buffer) {
-    const img = await processPostImage({ buffer: coverFile.buffer, postId });
+    const img = await processPostImage({ buffer: coverFile.buffer });
+
     await pool.query(
-      `UPDATE posts SET coverImage = ?, coverThumb = ? WHERE id = ?`,
-      [img.imagePath, img.thumbPath, postId]
+      `UPDATE posts SET coverImage = ?, coverImageMime = ? WHERE id = ?`,
+      [img.imageBuffer, img.mime, postId]
     );
   }
 
-  // detail images (gallery)
+  // ✅ Gallery stored in DB
   if (imageFiles.length) {
     for (let i = 0; i < imageFiles.length; i++) {
       const f = imageFiles[i];
       if (!f?.buffer) continue;
 
-      const img = await processPostImage({ buffer: f.buffer, postId });
+      const img = await processPostImage({ buffer: f.buffer });
 
       await pool.query(
-        `INSERT INTO post_images (id, postId, url, sortOrder) VALUES (?, ?, ?, ?)`,
-        [makeId(), postId, img.imagePath, i]
+        `INSERT INTO post_images (id, postId, image, imageMime, sortOrder) VALUES (?, ?, ?, ?, ?)`,
+        [makeId(), postId, img.imageBuffer, img.mime, i]
       );
     }
   }
@@ -230,7 +264,6 @@ router.post("/", requireAuth, uploadPostMedia, async (req, res) => {
   res.json({ ok: true, post: full });
 });
 
-// UPDATE POST (can replace cover + append new detail images + set categoryId)
 router.put("/:id", requireAuth, uploadPostMedia, async (req, res) => {
   const { id } = req.params;
 
@@ -242,10 +275,9 @@ router.put("/:id", requireAuth, uploadPostMedia, async (req, res) => {
     categories = [],
     tags = [],
     categoryId,
-    activityDate, // ✅ NEW
+    activityDate,
   } = req.body;
 
-  // Build update dynamically to mimic Prisma behavior (skip undefined)
   const fields = [];
   const values = [];
 
@@ -267,8 +299,6 @@ router.put("/:id", requireAuth, uploadPostMedia, async (req, res) => {
     fields.push("status = ?");
     values.push(status || "DRAFT");
   }
-
-  // ✅ NEW: update activityDate only if provided
   if (activityDate !== undefined) {
     fields.push("activityDate = ?");
     values.push(activityDate ? new Date(activityDate) : null);
@@ -278,7 +308,6 @@ router.put("/:id", requireAuth, uploadPostMedia, async (req, res) => {
     await pool.query(`UPDATE posts SET ${fields.join(", ")} WHERE id = ?`, [...values, id]);
   }
 
-  // ✅ categories/tags logic
   if (categoryId) {
     await pool.query(`DELETE FROM post_categories WHERE postId = ?`, [id]);
     await pool.query(
@@ -294,37 +323,37 @@ router.put("/:id", requireAuth, uploadPostMedia, async (req, res) => {
     await attachCatsTags(id, categories, tags);
   }
 
-  // files
   const coverFile = req.files?.cover?.[0];
   const imageFiles = req.files?.images || [];
 
-  // replace cover
+  // ✅ replace cover in DB
   if (coverFile?.buffer) {
-    const img = await processPostImage({ buffer: coverFile.buffer, postId: id });
+    const img = await processPostImage({ buffer: coverFile.buffer });
+
     await pool.query(
-      `UPDATE posts SET coverImage = ?, coverThumb = ? WHERE id = ?`,
-      [img.imagePath, img.thumbPath, id]
+      `UPDATE posts SET coverImage = ?, coverImageMime = ? WHERE id = ?`,
+      [img.imageBuffer, img.mime, id]
     );
   }
 
-  // append new detail images (keep old ones)
+  // ✅ append gallery in DB
   if (imageFiles.length) {
     const [lastRows] = await pool.query(
       `SELECT sortOrder FROM post_images WHERE postId = ? ORDER BY sortOrder DESC LIMIT 1`,
       [id]
     );
 
-    let startOrder = ((lastRows[0]?.sortOrder ?? -1) + 1);
+    const startOrder = (Number(lastRows[0]?.sortOrder ?? -1) + 1);
 
     for (let i = 0; i < imageFiles.length; i++) {
       const f = imageFiles[i];
       if (!f?.buffer) continue;
 
-      const img = await processPostImage({ buffer: f.buffer, postId: id });
+      const img = await processPostImage({ buffer: f.buffer });
 
       await pool.query(
-        `INSERT INTO post_images (id, postId, url, sortOrder) VALUES (?, ?, ?, ?)`,
-        [makeId(), id, img.imagePath, startOrder + i]
+        `INSERT INTO post_images (id, postId, image, imageMime, sortOrder) VALUES (?, ?, ?, ?, ?)`,
+        [makeId(), id, img.imageBuffer, img.mime, startOrder + i]
       );
     }
   }
@@ -340,14 +369,12 @@ router.put("/:id", requireAuth, uploadPostMedia, async (req, res) => {
   res.json({ ok: true, post: full });
 });
 
-// LIST + SEARCH + FILTERS (✅ add year filter)
 router.get("/", async (req, res) => {
   const { q, status, category, tag, year, page = 1, limit = 10, sort = "newest" } = req.query;
 
   const take = Math.min(Number(limit), 50);
   const skip = (Number(page) - 1) * take;
 
-  // Build SQL WHERE similar to Prisma
   const whereParts = [];
   const params = [];
 
@@ -364,7 +391,6 @@ router.get("/", async (req, res) => {
     params.push(like, like, like);
   }
 
-  // ✅ NEW: Filter by year using activityDate
   if (year) {
     const y = Number(year);
     const from = new Date(Date.UTC(y, 0, 1));
@@ -399,14 +425,12 @@ router.get("/", async (req, res) => {
       ? `ORDER BY p.title ASC`
       : `ORDER BY p.createdAt DESC`;
 
-  // Count total (distinct because joins can duplicate)
   const [countRows] = await pool.query(
     `SELECT COUNT(DISTINCT p.id) AS total ${joinSql} ${whereSql}`,
     params
   );
   const total = Number(countRows[0]?.total || 0);
 
-  // Fetch page items
   const [postRows] = await pool.query(
     `
     SELECT DISTINCT p.*
@@ -418,18 +442,15 @@ router.get("/", async (req, res) => {
     [...params, take, skip]
   );
 
-  // Attach includes (same shape as Prisma include)
   const items = [];
   for (const p of postRows) {
     const full = await getFullPostById(p.id);
-    // add author select id/name/email like original list route
     items.push(full);
   }
 
   res.json({ ok: true, total, page: Number(page), limit: take, items });
 });
 
-// DELETE POST
 router.delete("/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
 
@@ -440,7 +461,6 @@ router.delete("/:id", requireAuth, async (req, res) => {
   await pool.query(`DELETE FROM post_categories WHERE postId = ?`, [id]);
   await pool.query(`DELETE FROM post_tags WHERE postId = ?`, [id]);
   await pool.query(`DELETE FROM post_images WHERE postId = ?`, [id]);
-
   await pool.query(`DELETE FROM posts WHERE id = ?`, [id]);
 
   await logAdminAction(req, { action: "POST_DELETED", entity: "Post", entityId: id });
@@ -448,13 +468,12 @@ router.delete("/:id", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// SINGLE BY SLUG
+// SINGLE BY SLUG (keep last)
 router.get("/:slug", async (req, res) => {
   const post = await getFullPostBySlug(req.params.slug);
 
   if (!post) return res.status(404).json({ ok: false, error: "Not found" });
 
-  // match original author select { id, name } for single slug route
   if (post.author) {
     post.author = { id: post.author.id, name: post.author.name };
   }

@@ -3,7 +3,6 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
-import path from "path";
 
 import { apiLimiter } from "./middleware/rateLimiter.js";
 
@@ -39,28 +38,22 @@ app.use(express.json({ limit: "2mb" }));
 app.use(cookieParser());
 app.use(apiLimiter);
 
-// ✅ CORS (allow local dev)
+// ✅ CORS (dev + production)
 const allowedOrigins = [
-  process.env.FRONTEND_URL || "http://localhost:5173",
+  process.env.FRONTEND_URL, // set this in Railway
+  "http://localhost:5173",
   "http://127.0.0.1:5173",
-];
+].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      // allow non-browser tools (curl/postman) with no origin
       if (!origin) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
-      return cb(new Error("CORS blocked: " + origin));
+      return cb(null, false);
     },
     credentials: true,
   })
-);
-
-// serve uploads
-app.use(
-  "/uploads",
-  express.static(path.resolve(process.env.UPLOAD_DIR || "uploads"))
 );
 
 // routes
