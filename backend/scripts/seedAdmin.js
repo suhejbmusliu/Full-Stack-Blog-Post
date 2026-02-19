@@ -1,45 +1,53 @@
-import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
 import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import pool from "../config/database.js";
+import { makeId } from "../models/_id.js";
 
 async function main() {
-  const email = process.argv[2];
+  const emailArg = process.argv[2];
   const pass = process.argv[3];
 
-  if (!email || !pass) {
-    console.log("Usage: node scripts/seedAdmin.js admin@email.com StrongPassword123!");
+  if (!emailArg || !pass) {
+    console.log("Usage: node scripts/seedAdmin.js shoqatadituria@gmail.com D1tur!a@2025#X9");
     process.exit(1);
   }
 
+  const email = String(emailArg).trim().toLowerCase();
   const passwordHash = await bcrypt.hash(pass, 12);
 
-  // IMPORTANT:
-  // If your model is Admin, this works: prisma.admin
-  // If your model is User, change prisma.admin -> prisma.user
-  const delegateName = "admin"; // <-- change to "user" if needed
-  const delegate = prisma[delegateName];
+  // Check if admin exists
+  const [rows] = await pool.query(
+    `SELECT id, email FROM admins WHERE email = ? LIMIT 1`,
+    [email]
+  );
 
-  if (!delegate) {
-    console.log("❌ Prisma delegate not found:", delegateName);
-    console.log("Available models:", Object.keys(prisma).filter(k => !k.startsWith("$")));
-    process.exit(1);
+  if (rows[0]) {
+    // Update password
+    await pool.query(
+      `UPDATE admins
+       SET passwordHash = ?, failedLogins = 0, lockedUntil = NULL
+       WHERE id = ?`,
+      [passwordHash, rows[0].id]
+    );
+
+    console.log("✅ Admin password UPDATED:", rows[0].email);
+    process.exit(0);
   }
 
-  await delegate.upsert({
-    where: { email },
-    create: { email, passwordHash, name: "Admin" },
-    update: { passwordHash },
-  });
+  // Create new admin
+  const id = makeId();
 
-  console.log("✅ Admin ready:", email);
+  await pool.query(
+    `INSERT INTO admins (id, email, passwordHash, role, isActive)
+     VALUES (?, ?, ?, ?, TRUE)`,
+    [id, email, passwordHash, "ADMIN"]
+  );
+
+  console.log("✅ Admin CREATED:", email);
+  process.exit(0);
 }
 
-main()
-  .catch((e) => {
-    console.error("Seed error:", e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch((err) => {
+  console.error("Seed error:", err);
+  process.exit(1);
+});

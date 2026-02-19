@@ -1,12 +1,14 @@
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { prisma } from "./prisma.js";
+
+// ✅ Use MySQL model instead of Prisma
+import RefreshToken from "../models/RefreshToken.js";
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES || "15m";
-const REFRESH_DAYS = Number(process.env.JWT_REFRESH_EXPIRES_DAYS || 14);
+const REFRESH_HOURS = Number(process.env.JWT_REFRESH_EXPIRES_HOURS || 24);
 
 export function signAccessToken(admin) {
   return jwt.sign(
@@ -20,7 +22,7 @@ export function signRefreshToken(admin, tokenId) {
   return jwt.sign(
     { sub: admin.id, tid: tokenId },
     REFRESH_SECRET,
-    { expiresIn: `${REFRESH_DAYS}d` }
+    { expiresIn: `${REFRESH_HOURS}d` }
   );
 }
 
@@ -38,23 +40,32 @@ export function makeRandomToken() {
 
 export async function storeRefreshToken({ adminId, rawToken, expiresAt, ip, userAgent }) {
   const tokenHash = await bcrypt.hash(rawToken, 12);
-  return prisma.refreshToken.create({
-    data: { adminId, tokenHash, expiresAt, ip, userAgent },
+
+  // ✅ Create in MySQL
+  return RefreshToken.create({
+    adminId,
+    tokenHash,
+    expiresAt,
+    ip,
+    userAgent,
   });
 }
 
 export async function revokeRefreshToken(tokenId) {
-  return prisma.refreshToken.update({
-    where: { id: tokenId },
-    data: { revokedAt: new Date() },
-  });
+  // ✅ Revoke in MySQL
+  return RefreshToken.revoke(tokenId);
 }
 
 export async function validateRefreshToken(tokenId, rawToken) {
-  const db = await prisma.refreshToken.findUnique({ where: { id: tokenId } });
+  // ✅ Read from MySQL
+  const db = await RefreshToken.findById(tokenId);
+
   if (!db) return { ok: false, reason: "NOT_FOUND" };
   if (db.revokedAt) return { ok: false, reason: "REVOKED" };
-  if (db.expiresAt < new Date()) return { ok: false, reason: "EXPIRED" };
+
+  // MySQL returns DATETIME; convert safely
+  const expiresAt = db.expiresAt instanceof Date ? db.expiresAt : new Date(db.expiresAt);
+  if (expiresAt < new Date()) return { ok: false, reason: "EXPIRED" };
 
   const match = await bcrypt.compare(rawToken, db.tokenHash);
   if (!match) return { ok: false, reason: "MISMATCH" };

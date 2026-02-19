@@ -12,7 +12,6 @@ export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // ✅ NEW: show/hide password
   const [showPassword, setShowPassword] = useState(false);
 
   const [twoFactorCode, setTwoFactorCode] = useState("");
@@ -84,6 +83,7 @@ export default function AdminLogin() {
                   required
                 />
               </div>
+
               <div className="adminField">
                 <label>Password</label>
 
@@ -102,10 +102,6 @@ export default function AdminLogin() {
                     type="button"
                     className="adminEyeBtn"
                     onClick={() => setShowPassword((v) => !v)}
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                    title={showPassword ? "Hide" : "Show"}
                   >
                     {showPassword ? "🙈" : "👁️"}
                   </button>
@@ -156,7 +152,23 @@ export default function AdminLogin() {
                 >
                   Back
                 </button>
-                <span className="adminSmall">Google Authenticator / Authy</span>
+
+                {/* ✅ NEW: Lost 2FA link */}
+                <button
+                  type="button"
+                  className="adminLink"
+                  onClick={() =>
+                    nav("/admin/forgot-2fa", {
+                      state: { email },
+                    })
+                  }
+                >
+                  Lost 2FA?
+                </button>
+              </div>
+
+              <div className="adminSmall">
+                Google Authenticator / Authy
               </div>
             </div>
           )}

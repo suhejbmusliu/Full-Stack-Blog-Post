@@ -5,22 +5,36 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import path from "path";
 
-
 import { apiLimiter } from "./middleware/rateLimiter.js";
 
-import authRoutes from "./routes/authRoutes.js";
+import authRoutes from "./config/authRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
-import adminLogRoutes from "./routes/adminLogsRoutes.js"; 
+import adminLogRoutes from "./routes/adminLogsRoutes.js";
+import { sendEmail } from "./lib/emailService.js";
 
 const app = express();
 
 app.set("trust proxy", 1);
+
+app.get("/api/test-email", async (req, res) => {
+  try {
+    await sendEmail({
+      to: process.env.SMTP_USER,
+      subject: "Test email",
+      html: "<p>If you got this, SMTP works.</p>",
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
 
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
+
 app.use(express.json({ limit: "2mb" }));
 app.use(cookieParser());
 app.use(apiLimiter);

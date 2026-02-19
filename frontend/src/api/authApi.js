@@ -75,11 +75,29 @@ export const authApi = {
     });
   },
 
- async twoFaDisable(accessToken, code) {
-  return request("/api/auth/2fa/disable", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({ code }),
-  });
+  async twoFaDisable(accessToken, code) {
+    return request("/api/auth/2fa/disable", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ code }),
+    });
+  },
+
+  /* =======================================================
+     ✅ NEW — LOST 2FA (RECOVERY FLOW)
+     ======================================================= */
+
+  async requestTwoFaReset(email) {
+    return request("/api/auth/2fa-reset/request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async confirmTwoFaReset({ email, token }) {
+    return request("/api/auth/2fa-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify({ email, token }),
+    });
   },
 };

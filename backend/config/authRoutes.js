@@ -20,12 +20,9 @@ import {
   verify2FAToken,
 } from "../lib/twoFactorAuth.js";
 
-// ✅ MySQL models
 import Admin from "../models/Admin.js";
 import PasswordResetToken from "../models/PasswordResetToken.js";
-
-
-// ✅ Transaction support
+import TwoFactorResetToken from "../models/TwoFactorResetToken.js";
 import pool from "../config/database.js";
 
 const router = Router();
@@ -39,7 +36,9 @@ function setRefreshCookie(res, value) {
   });
 }
 
-// LOGIN (supports 2FA if enabled)
+/* =========================================================
+   LOGIN
+========================================================= */
 router.post("/login", authLimiter, async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const { password, twoFactorCode } = req.body;
@@ -55,23 +54,21 @@ router.post("/login", authLimiter, async (req, res) => {
   const ok = await bcrypt.compare(password, admin.passwordHash);
   if (!ok) {
     const failed = admin.failedLogins + 1;
-    const lockedUntil = failed >= 8 ? new Date(Date.now() + 15 * 60 * 1000) : null;
+    const lockedUntil =
+      failed >= 8 ? new Date(Date.now() + 15 * 60 * 1000) : null;
 
     await Admin.update(admin.id, { failedLogins: failed, lockedUntil });
 
     return res.status(401).json({ ok: false, error: "Invalid credentials" });
   }
 
-  // If 2FA enabled, require code
   if (admin.twoFactorEnabled) {
-    if (!twoFactorCode) {
+    if (!twoFactorCode)
       return res.status(401).json({ ok: false, error: "2FA_REQUIRED" });
-    }
-    if (!admin.twoFactorSecret) {
+
+    const valid2fa = verify2FAToken(admin.twoFactorSecret, twoFactorCode);
+    if (!valid2fa)
       return res.status(401).json({ ok: false, error: "INVALID_2FA" });
-    }
-    const valid2fa = verify2FAToken(admin.twoFactorSecret, String(twoFactorCode));
-    if (!valid2fa) return res.status(401).json({ ok: false, error: "INVALID_2FA" });
   }
 
   await Admin.update(admin.id, {
@@ -101,17 +98,26 @@ router.post("/login", authLimiter, async (req, res) => {
   return res.json({
     ok: true,
     accessToken,
-    admin: { id: admin.id, email: admin.email, name: admin.name, role: admin.role },
+    admin: {
+      id: admin.id,
+      email: admin.email,
+      name: admin.name,
+      role: admin.role,
+    },
   });
 });
 
-// REFRESH (rotation)
+/* =========================================================
+   REFRESH
+========================================================= */
 router.post("/refresh", async (req, res) => {
   const cookieVal = req.cookies?.refreshToken;
-  if (!cookieVal) return res.status(401).json({ ok: false, error: "Missing refresh token" });
+  if (!cookieVal)
+    return res.status(401).json({ ok: false, error: "Missing refresh token" });
 
   const dot = cookieVal.lastIndexOf(".");
-  if (dot === -1) return res.status(401).json({ ok: false, error: "Invalid refresh format" });
+  if (dot === -1)
+    return res.status(401).json({ ok: false, error: "Invalid refresh format" });
 
   const refreshJwt = cookieVal.slice(0, dot);
   const raw = cookieVal.slice(dot + 1);
@@ -127,9 +133,9 @@ router.post("/refresh", async (req, res) => {
   const adminId = payload.sub;
 
   const check = await validateRefreshToken(tokenId, raw);
-  if (!check.ok) return res.status(401).json({ ok: false, error: "Refresh rejected" });
+  if (!check.ok)
+    return res.status(401).json({ ok: false, error: "Refresh rejected" });
 
-  // rotate: revoke old, issue new
   await revokeRefreshToken(tokenId);
 
   const admin = await Admin.findById(adminId);
@@ -156,85 +162,90 @@ router.post("/refresh", async (req, res) => {
   return res.json({ ok: true, accessToken: newAccess });
 });
 
-// LOGOUT
+/* =========================================================
+   LOGOUT
+========================================================= */
 router.post("/logout", async (req, res) => {
   setRefreshCookie(res, "");
   return res.json({ ok: true });
 });
 
-// ME
+/* =========================================================
+   ME
+========================================================= */
 router.get("/me", requireAuth, async (req, res) => {
   const admin = await Admin.findById(req.user.sub);
 
-  const selected = admin
-    ? {
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-        role: admin.role,
-        twoFactorEnabled: admin.twoFactorEnabled,
-      }
-    : null;
-
-  res.json({ ok: true, admin: selected });
+  res.json({
+    ok: true,
+    admin: admin
+      ? {
+          id: admin.id,
+          email: admin.email,
+          name: admin.name,
+          role: admin.role,
+          twoFactorEnabled: admin.twoFactorEnabled,
+        }
+      : null,
+  });
 });
 
-// PASSWORD RESET REQUEST
+/* =========================================================
+   PASSWORD RESET
+========================================================= */
 router.post("/forgot-password", authLimiter, async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const admin = await Admin.findByEmail(email);
-
-  // Always respond ok (avoid email enumeration)
   if (!admin) return res.json({ ok: true });
 
   const raw = crypto.randomBytes(32).toString("hex");
   const tokenHash = crypto.createHash("sha256").update(raw).digest("hex");
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-  await PasswordResetToken.create({ adminId: admin.id, tokenHash, expiresAt });
+  await PasswordResetToken.create({
+    adminId: admin.id,
+    tokenHash,
+    expiresAt,
+  });
 
-  const link = `${process.env.FRONTEND_URL}/admin/reset-password?token=${raw}&email=${encodeURIComponent(
-    email
-  )}`;
+  const link = `${process.env.FRONTEND_URL}/admin/reset-password?token=${raw}&email=${encodeURIComponent(email)}`;
 
-  try {
-    await sendEmail({
-      to: email,
-      subject: "Password reset",
-      html: `<p>Click to reset your password:</p><p><a href="${link}">${link}</a></p><p>This link expires in 30 minutes.</p>`,
-    });
-  } catch (err) {
-    console.error("❌ EMAIL SEND ERROR:", err);
-  }
+  await sendEmail({
+    to: email,
+    subject: "Password reset",
+    html: `<p>Click to reset your password:</p>
+           <p><a href="${link}">${link}</a></p>
+           <p>This link expires in 30 minutes.</p>`,
+  });
 
   return res.json({ ok: true });
 });
 
-// PASSWORD RESET CONFIRM
 router.post("/reset-password", authLimiter, async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const { token, newPassword } = req.body;
 
   const admin = await Admin.findByEmail(email);
-  if (!admin) return res.status(400).json({ ok: false, error: "Invalid request" });
+  if (!admin)
+    return res.status(400).json({ ok: false, error: "Invalid request" });
 
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-
   const rec = await PasswordResetToken.findLatestUnused(admin.id, tokenHash);
 
-  if (!rec || new Date(rec.expiresAt) < new Date()) {
+  if (!rec || new Date(rec.expiresAt) < new Date())
     return res.status(400).json({ ok: false, error: "Token expired/invalid" });
-  }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-
     await Admin.update(admin.id, { passwordHash }, { connection: conn });
-    await PasswordResetToken.update(rec.id, { usedAt: new Date() }, { connection: conn });
-
+    await PasswordResetToken.update(
+      rec.id,
+      { usedAt: new Date() },
+      { connection: conn }
+    );
     await conn.commit();
   } catch (err) {
     await conn.rollback();
@@ -247,123 +258,120 @@ router.post("/reset-password", authLimiter, async (req, res) => {
 });
 
 /* =========================================================
-   ✅ LOST 2FA / 2FA RECOVERY (EMAIL RESET FLOW)
-   ========================================================= */
-
-// REQUEST 2FA RESET LINK (no auth)
+   2FA RECOVERY
+========================================================= */
 router.post("/2fa-reset/request", authLimiter, async (req, res) => {
   try {
     const email = String(req.body.email || "").trim().toLowerCase();
-    if (!email) return res.json({ ok: true });
-
     const admin = await Admin.findByEmail(email);
-
-    // always ok:true to avoid email enumeration
     if (!admin) return res.json({ ok: true });
 
     const raw = crypto.randomBytes(32).toString("hex");
     const tokenHash = crypto.createHash("sha256").update(raw).digest("hex");
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 min
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-    await TwoFactorResetToken.create({ adminId: admin.id, tokenHash, expiresAt });
+    await TwoFactorResetToken.create({
+      adminId: admin.id,
+      tokenHash,
+      expiresAt,
+    });
 
-    const link = `${process.env.FRONTEND_URL}/admin/reset-2fa?token=${raw}&email=${encodeURIComponent(
-      email
-    )}`;
+    const link = `${process.env.FRONTEND_URL}/admin/reset-2fa?token=${raw}&email=${encodeURIComponent(email)}`;
 
-    try {
-      await sendEmail({
-        to: email,
-        subject: "2FA Recovery (Reset Two-Factor Authentication)",
-        html: `<p>You requested to reset 2FA for your admin account.</p>
-               <p>Click to reset 2FA:</p>
-               <p><a href="${link}">${link}</a></p>
-               <p>This link expires in 30 minutes.</p>
-               <p>If you didn’t request this, ignore this email.</p>`,
-      });
-    } catch (err) {
-      console.error("❌ 2FA RESET EMAIL SEND ERROR:", err);
-    }
+    await sendEmail({
+      to: email,
+      subject: "2FA Recovery",
+      html: `<p>You requested to reset 2FA.</p>
+             <p><a href="${link}">${link}</a></p>
+             <p>This link expires in 30 minutes.</p>`,
+    });
 
-    return res.json({ ok: true });
+    res.json({ ok: true });
   } catch (err) {
     console.error("❌ 2FA reset request error:", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
+    res.status(500).json({ ok: false, error: "Server error" });
   }
 });
 
-// CONFIRM 2FA RESET (no auth)
 router.post("/2fa-reset/confirm", authLimiter, async (req, res) => {
-  const email = String(req.body.email || "").trim().toLowerCase();
-  const token = String(req.body.token || "").trim();
-
-  if (!email || !token) {
-    return res.status(400).json({ ok: false, error: "Missing token/email" });
-  }
-
-  const admin = await Admin.findByEmail(email);
-  if (!admin) return res.status(400).json({ ok: false, error: "Invalid link" });
-
-  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-  const rec = await TwoFactorResetToken.findLatestUnused(admin.id, tokenHash);
-
-  if (!rec || new Date(rec.expiresAt) < new Date()) {
-    return res.status(400).json({ ok: false, error: "Token expired/invalid" });
-  }
-
-  const conn = await pool.getConnection();
   try {
-    await conn.beginTransaction();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const { token } = req.body;
 
-    // ✅ reset 2FA (recovery)
-    await Admin.reset2FARecovery(admin.id, { connection: conn });
+    const admin = await Admin.findByEmail(email);
+    if (!admin)
+      return res.status(400).json({ ok: false, error: "Invalid request" });
 
-    // ✅ mark token used
-    await TwoFactorResetToken.update(rec.id, { usedAt: new Date() }, { connection: conn });
-
-    // ✅ revoke all refresh tokens (force re-login everywhere)
-    await Admin.revokeAllRefreshTokens(admin.id, { connection: conn });
-
-    await conn.commit();
-  } catch (err) {
-    await conn.rollback();
-    console.error("❌ 2FA reset confirm error:", err);
-    return res.status(500).json({ ok: false, error: "Server error" });
-  } finally {
-    conn.release();
-  }
-
-  // log (best-effort)
-  try {
-    await logAdminAction(
-      { ip: req.ip, headers: req.headers },
-      { action: "2FA_RESET_RECOVERY", entity: "Admin", entityId: admin.id }
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const rec = await TwoFactorResetToken.findLatestUnused(
+      admin.id,
+      tokenHash
     );
-  } catch {}
 
-  return res.json({
-    ok: true,
-    message: "2FA has been reset. You can now login again and set up 2FA.",
-  });
+    if (!rec || new Date(rec.expires_at) < new Date())
+      return res
+        .status(400)
+        .json({ ok: false, error: "Token expired or invalid" });
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      await Admin.update(
+        admin.id,
+        {
+          twoFactorEnabled: false,
+          twoFactorSecret: null,
+          twoFactorTemp: null,
+        },
+        { connection: conn }
+      );
+
+      await TwoFactorResetToken.update(
+        rec.id,
+        { usedAt: new Date() },
+        { connection: conn }
+      );
+
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("❌ 2FA reset confirm error:", err);
+    res.status(500).json({ ok: false, error: "Server error" });
+  }
 });
+
+export default router;
+
 
 /* =========================================================
-   ✅ 2FA SETUP / ENABLE / DISABLE (logged in)
-   ========================================================= */
+   2FA SETUP / ENABLE / DISABLE (logged in)
+========================================================= */
 
 // 2FA SETUP (generate secret + QR)
 router.post("/2fa/setup", requireAuth, async (req, res) => {
   const admin = await Admin.findById(req.user.sub);
-  if (!admin) return res.status(404).json({ ok: false });
+  if (!admin) return res.status(404).json({ ok: false, error: "Admin not found" });
 
   const secret = generate2FASecret(admin.email);
   const qr = await makeQRCodeDataUrl(secret.otpauth_url);
 
+  // store temp secret until user verifies code
   await Admin.update(admin.id, { twoFactorTemp: secret.base32 });
 
-  await logAdminAction(req, { action: "2FA_SETUP_STARTED", entity: "Admin", entityId: admin.id });
+  // optional log
+  try {
+    await logAdminAction(req, { action: "2FA_SETUP_STARTED", entity: "Admin", entityId: admin.id });
+  } catch {}
 
-  res.json({ ok: true, qr, secretBase32: secret.base32 });
+  return res.json({ ok: true, qr, secretBase32: secret.base32 });
 });
 
 // 2FA ENABLE (verify code)
@@ -371,8 +379,9 @@ router.post("/2fa/enable", requireAuth, async (req, res) => {
   const { code } = req.body;
 
   const admin = await Admin.findById(req.user.sub);
-  if (!admin || !admin.twoFactorTemp)
+  if (!admin || !admin.twoFactorTemp) {
     return res.status(400).json({ ok: false, error: "No setup in progress" });
+  }
 
   const ok = verify2FAToken(admin.twoFactorTemp, String(code));
   if (!ok) return res.status(400).json({ ok: false, error: "Invalid code" });
@@ -383,43 +392,38 @@ router.post("/2fa/enable", requireAuth, async (req, res) => {
     twoFactorTemp: null,
   });
 
-  await logAdminAction(req, { action: "2FA_ENABLED", entity: "Admin", entityId: admin.id });
+  try {
+    await logAdminAction(req, { action: "2FA_ENABLED", entity: "Admin", entityId: admin.id });
+  } catch {}
 
-  res.json({ ok: true });
+  return res.json({ ok: true });
 });
 
-// ✅ FIXED: 2FA DISABLE (require code) — cleaned and correct
+// 2FA DISABLE (verify code)
 router.post("/2fa/disable", requireAuth, async (req, res) => {
   const { code } = req.body;
 
   const admin = await Admin.findById(req.user.sub);
   if (!admin) return res.status(404).json({ ok: false, error: "Admin not found" });
 
-  if (!admin.twoFactorEnabled) {
-    return res.json({ ok: true }); // already disabled
-  }
+  if (!admin.twoFactorEnabled) return res.json({ ok: true });
 
-  if (!code) {
-    return res.status(400).json({ ok: false, error: "CODE_REQUIRED" });
-  }
+  if (!code) return res.status(400).json({ ok: false, error: "CODE_REQUIRED" });
 
-  if (!admin.twoFactorSecret) {
-    return res.status(401).json({ ok: false, error: "INVALID_2FA" });
-  }
+  if (!admin.twoFactorSecret) return res.status(401).json({ ok: false, error: "INVALID_2FA" });
 
   const valid = verify2FAToken(admin.twoFactorSecret, String(code));
-  if (!valid) {
-    return res.status(401).json({ ok: false, error: "INVALID_2FA" });
-  }
+  if (!valid) return res.status(401).json({ ok: false, error: "INVALID_2FA" });
 
-  const updated = await Admin.update(admin.id, {
+  await Admin.update(admin.id, {
     twoFactorEnabled: false,
     twoFactorSecret: null,
     twoFactorTemp: null,
   });
 
-  await logAdminAction(req, { action: "2FA_DISABLED", entity: "Admin", entityId: updated.id });
+  try {
+    await logAdminAction(req, { action: "2FA_DISABLED", entity: "Admin", entityId: admin.id });
+  } catch {}
+
   return res.json({ ok: true });
 });
-
-export default router;

@@ -14,6 +14,10 @@ import AdminLogin from "./pages/admin/AdminLogin";
 import AdminForgotPassword from "./pages/admin/AdminForgotPassword";
 import AdminResetPassword from "./pages/admin/AdminResetPassword";
 
+// ✅ NEW
+import AdminForgot2FA from "./pages/admin/AdminForgot2FA";
+import AdminReset2FA from "./pages/admin/AdminReset2FA";
+
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminPosts from "./pages/admin/AdminPosts";
 import AdminPostForm from "./pages/admin/AdminPostForm";
@@ -22,24 +26,26 @@ import AdminSecurity2FA from "./pages/admin/AdminSecurity2FA";
 export default function App() {
   return (
     <Routes>
-      {/* ✅ PUBLIC (Outlet-based) */}
+      {/* ================= PUBLIC ================= */}
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/activities" element={<Activities />} />
-        <Route path="/activities/:year" element={<Activities />} /> 
+        <Route path="/activities/:year" element={<Activities />} />
         <Route path="/contact" element={<Contact />} />
-
-        {/* ✅ match your PostGrid/PostDetails usage */}
         <Route path="/posts/:slug" element={<PostDetails />} />
       </Route>
 
-      {/* ADMIN AUTH (NO NAVBAR/FOOTER) */}
+      {/* ================= ADMIN AUTH (NO LAYOUT) ================= */}
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
       <Route path="/admin/reset-password" element={<AdminResetPassword />} />
 
-      {/* ADMIN PANEL */}
+      {/* ✅ NEW — PUBLIC 2FA RECOVERY ROUTES */}
+      <Route path="/admin/forgot-2fa" element={<AdminForgot2FA />} />
+      <Route path="/admin/reset-2fa" element={<AdminReset2FA />} />
+
+      {/* ================= ADMIN PANEL (PROTECTED) ================= */}
       <Route
         path="/admin"
         element={

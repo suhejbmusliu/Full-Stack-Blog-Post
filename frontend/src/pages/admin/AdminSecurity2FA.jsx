@@ -4,28 +4,25 @@ import "../../styles/admintheme/adminPanel.css";
 
 export default function AdminSecurity2FA() {
   const [loading, setLoading] = useState(false);
-
-  // REAL status (synced from backend /me)
   const [enabled, setEnabled] = useState(false);
 
-  // setup payload from backend
   const [qr, setQr] = useState("");
   const [secretBase32, setSecretBase32] = useState("");
 
-  const [code, setCode] = useState(""); // used for enabling
-  const [disableCode, setDisableCode] = useState(""); // ✅ NEW: used for disabling
+  const [code, setCode] = useState("");
+  const [disableCode, setDisableCode] = useState("");
 
   const [msg, setMsg] = useState({ type: "", text: "" });
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
 
   const token = localStorage.getItem("accessToken");
 
-  // ---- Load real status from backend (/me) ----
   async function loadStatus() {
     try {
       const me = await authApi.me(token);
       setEnabled(!!me?.admin?.twoFactorEnabled);
+    // eslint-disable-next-line no-unused-vars
     } catch (e) {
-      console.log("loadStatus error:", e);
       setMsg({ type: "error", text: "Failed to load 2FA status." });
     }
   }
@@ -35,7 +32,6 @@ export default function AdminSecurity2FA() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- Setup (generate QR + temp secret) ----
   async function startSetup() {
     setMsg({ type: "", text: "" });
     setLoading(true);
@@ -44,7 +40,6 @@ export default function AdminSecurity2FA() {
       const data = await authApi.twoFaSetup(token);
       setQr(data.qr || "");
       setSecretBase32(data.secretBase32 || "");
-
       setMsg({ type: "ok", text: "2FA setup created. Scan QR then enter the 6-digit code." });
     } catch (e) {
       setMsg({ type: "error", text: e.message || "2FA setup failed." });
@@ -53,7 +48,6 @@ export default function AdminSecurity2FA() {
     }
   }
 
-  // ---- Enable (verify code) ----
   async function enable2FA() {
     setMsg({ type: "", text: "" });
 
@@ -70,7 +64,7 @@ export default function AdminSecurity2FA() {
       setQr("");
       setSecretBase32("");
       setCode("");
-      setDisableCode(""); // ✅ clear disable code too
+      setDisableCode("");
 
       setMsg({ type: "ok", text: "2FA enabled successfully." });
     } catch (e) {
@@ -80,7 +74,6 @@ export default function AdminSecurity2FA() {
     }
   }
 
-  // ---- Disable (NOW requires code) ----
   async function disable2FA() {
     setMsg({ type: "", text: "" });
 
@@ -91,7 +84,7 @@ export default function AdminSecurity2FA() {
 
     setLoading(true);
     try {
-      await authApi.twoFaDisable(token, disableCode.trim()); // ✅ SEND CODE
+      await authApi.twoFaDisable(token, disableCode.trim());
 
       setEnabled(false);
       setQr("");
@@ -107,6 +100,33 @@ export default function AdminSecurity2FA() {
     }
   }
 
+  // ✅ NEW: Request recovery email
+  async function sendRecoveryEmail() {
+    setMsg({ type: "", text: "" });
+    setRecoveryLoading(true);
+
+    try {
+      const me = await authApi.me(token);
+      const email = me?.admin?.email;
+
+      if (!email) {
+        setMsg({ type: "error", text: "Could not detect admin email." });
+        return;
+      }
+
+      await authApi.requestTwoFaReset(email);
+
+      setMsg({
+        type: "ok",
+        text: "Recovery email sent. Check your inbox (and spam folder).",
+      });
+    } catch (e) {
+      setMsg({ type: "error", text: e.message || "Failed to send recovery email." });
+    } finally {
+      setRecoveryLoading(false);
+    }
+  }
+
   return (
     <div className="adminPage">
       <h1 className="adminH1">2FA</h1>
@@ -117,7 +137,7 @@ export default function AdminSecurity2FA() {
       </div>
 
       <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
-        {/* If enabled -> show disable with code */}
+
         {enabled ? (
           <>
             <div style={{ display: "grid", gap: 8 }}>
@@ -134,7 +154,11 @@ export default function AdminSecurity2FA() {
               />
             </div>
 
-            <button className="adminBtn adminBtnDanger" onClick={disable2FA} disabled={loading}>
+            <button
+              className="adminBtn adminBtnDanger"
+              onClick={disable2FA}
+              disabled={loading}
+            >
               {loading ? "Please wait..." : "Disable 2FA"}
             </button>
 
@@ -144,14 +168,15 @@ export default function AdminSecurity2FA() {
           </>
         ) : (
           <>
-            {/* Not enabled -> show setup + enable */}
             <button className="adminBtn" onClick={startSetup} disabled={loading}>
               {loading ? "Please wait..." : "Create 2FA Setup (QR)"}
             </button>
 
             {qr && (
               <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
-                <div className="adminMuted">Scan this QR code with Google Authenticator / Authy:</div>
+                <div className="adminMuted">
+                  Scan this QR code with Google Authenticator / Authy:
+                </div>
                 <img
                   src={qr}
                   alt="2FA QR"
@@ -161,11 +186,13 @@ export default function AdminSecurity2FA() {
                     background: "#fff",
                     border: "1px solid #eaeaea",
                     borderRadius: 14,
-                    objectFit: "contain",
                   }}
                 />
 
-                <div className="adminMuted">If you can’t scan, add manually using this secret:</div>
+                <div className="adminMuted">
+                  If you can’t scan, add manually using this secret:
+                </div>
+
                 <div
                   style={{
                     border: "1px solid #eaeaea",
@@ -180,16 +207,24 @@ export default function AdminSecurity2FA() {
                 </div>
 
                 <div style={{ display: "grid", gap: 8 }}>
-                  <label className="adminMuted">Enter 6-digit code to enable:</label>
+                  <label className="adminMuted">
+                    Enter 6-digit code to enable:
+                  </label>
                   <input
                     className="adminInput adminCode"
                     inputMode="numeric"
                     maxLength={6}
                     value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onChange={(e) =>
+                      setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
                     placeholder="123456"
                   />
-                  <button className="adminBtn" onClick={enable2FA} disabled={loading}>
+                  <button
+                    className="adminBtn"
+                    onClick={enable2FA}
+                    disabled={loading}
+                  >
                     {loading ? "Please wait..." : "Verify & Enable 2FA"}
                   </button>
                 </div>
@@ -198,10 +233,44 @@ export default function AdminSecurity2FA() {
           </>
         )}
 
+        {/* ===============================
+            ✅ NEW RECOVERY SECTION
+           =============================== */}
+        <div
+          style={{
+            marginTop: 30,
+            padding: 16,
+            border: "1px dashed #e0e0e0",
+            borderRadius: 14,
+            background: "#fafafa",
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>
+            Lost access to your authenticator?
+          </div>
+
+          <div className="adminMuted" style={{ marginBottom: 10 }}>
+            If you lose your device or cannot access your 2FA codes,
+            you can request a recovery email.
+          </div>
+
+          <button
+            className="adminBtn"
+            onClick={sendRecoveryEmail}
+            disabled={recoveryLoading}
+          >
+            {recoveryLoading ? "Sending..." : "Send 2FA Recovery Email"}
+          </button>
+        </div>
+
         {msg.text && (
           <div
             className={`adminMsg ${
-              msg.type === "error" ? "adminMsg--error" : msg.type === "ok" ? "adminMsg--ok" : ""
+              msg.type === "error"
+                ? "adminMsg--error"
+                : msg.type === "ok"
+                ? "adminMsg--ok"
+                : ""
             }`}
           >
             {msg.text}
