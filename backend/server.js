@@ -9,6 +9,7 @@ import { apiLimiter } from "./middleware/rateLimiter.js";
 import authRoutes from "./config/authRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import adminLogRoutes from "./routes/adminLogsRoutes.js";
+import yearsRoutes from "./routes/yearsRoutes.js";
 import { sendEmail } from "./lib/emailService.js";
 
 const app = express();
@@ -60,6 +61,7 @@ app.use(
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/admin-logs", adminLogRoutes);
+app.use("/api/years", yearsRoutes);
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
